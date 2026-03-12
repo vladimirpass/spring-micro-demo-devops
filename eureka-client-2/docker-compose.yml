@@ -1,0 +1,57 @@
+version: '3.8'
+
+networks:
+  kafka-network:
+    driver: bridge
+
+volumes:
+  kafka-data:      # Том для сохранения данных Kafka
+
+services:
+  # --- Apache Kafka Broker (KRaft mode, без Zookeeper) ---
+  kafka:
+    # Используем официальный образ Apache Kafka, который точно существует и поддерживается [citation:1]
+    image: apache/kafka:3.7.0
+    container_name: kafka-broker
+    hostname: kafka
+    restart: unless-stopped
+    ports:
+      # Пробрасываем порт наружу, чтобы к Kafka можно было подключиться с хоста (из IDEA, Java-кода, плагина Confluent)
+      - "9092:9092"
+    environment:
+      # --- Настройки KRaft (режим без Zookeeper) ---
+      KAFKA_NODE_ID: 1
+      # Запускаем процесс, который является и брокером (принимает данные) и контроллером (управляет кластером)
+      KAFKA_PROCESS_ROLES: 'broker,controller'
+      # Уникальный ID кластера (можно сгенерировать свой или оставить этот)
+      CLUSTER_ID: 'MkU3OEVBNTcwNTJENDM2Qk'
+
+      # --- Настройки слушателей (listeners) — ЭТО САМОЕ ВАЖНОЕ ДЛЯ ПОДКЛЮЧЕНИЯ ИЗВНЕ [citation:1][citation:8] ---
+      # Слушаем входящие подключения на всех интерфейсах внутри контейнера
+      KAFKA_LISTENERS: 'PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093'
+
+      # ⚠️ РЕШЕНИЕ ПРОБЛЕМЫ BdtHostUnavailableException:
+      # Сообщаем клиентам (ваш плагин в IDEA), что подключаться нужно к localhost:9092
+      KAFKA_ADVERTISED_LISTENERS: 'PLAINTEXT://localhost:9092'
+
+      # Какому слушателю какой протокол соответствует
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: 'CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT'
+      # Имя слушателя для контроллера
+      KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
+      # Список контроллеров для кворума (у нас один, поэтому localhost)
+      KAFKA_CONTROLLER_QUORUM_VOTERS: '1@kafka:9093'
+
+      # --- Настройки топиков и репликации для разработки ---
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      # Автоматически создавать топики при обращении к ним
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+      # Количество партиций по умолчанию
+      KAFKA_NUM_PARTITIONS: 3
+
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    networks:
+      - kafka-network
