@@ -1,13 +1,11 @@
-FROM gradle:8.1.1 AS build
-ENV APP_HOME=/app
-COPY . $APP_HOME
-WORKDIR $APP_HOME
-RUN gradle build -x test
+FROM gradle:8.14-jdk17 AS build
+WORKDIR /app
+COPY . .
+RUN gradle bootJar --no-daemon
 
-FROM eclipse-temurin:17-jdk
-ENV APP_HOME=/app
-WORKDIR $APP_HOME
-COPY --from=build $APP_HOME/build/libs/*.jar app.jar
-ENV GATEWAY_HOST=localhost
-ENV GATEWAT_PORT=8765
+FROM eclipse-temurin:17-jre-alpine
+RUN apk add --no-cache curl
+WORKDIR /app
+COPY --from=build /app/build/libs/*.jar app.jar
+EXPOSE 8765
 ENTRYPOINT ["java", "-jar", "app.jar"]

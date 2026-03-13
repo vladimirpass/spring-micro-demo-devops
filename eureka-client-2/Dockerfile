@@ -6,6 +6,12 @@ RUN gradle bootJar --no-daemon
 FROM eclipse-temurin:17-jre-alpine
 RUN apk add --no-cache curl
 WORKDIR /app
+
+# Копируем JAR
 COPY --from=build /app/build/libs/*.jar app.jar
-EXPOSE 8888
+
+# Копируем ресурсы (на всякий случай)
+COPY --from=build /app/src/main/resources /app/resources
+
+EXPOSE 8088
 ENTRYPOINT ["java", "-jar", "app.jar"]
